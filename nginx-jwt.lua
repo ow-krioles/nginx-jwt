@@ -1,9 +1,12 @@
+local ck = require "resty.cookie"
 local jwt = require "resty.jwt"
 local cjson = require "cjson"
 local basexx = require "basexx"
 local secret = os.getenv("JWT_SECRET")
+local authCookieName = os.getenv("AUTH_COOKIE_NAME")
 
 assert(secret ~= nil, "Environment variable JWT_SECRET not set")
+assert(authCookieName ~= nil, "Environment variable AUTH_COOKIE_NAME not set")
 
 if os.getenv("JWT_SECRET_IS_BASE64_ENCODED") == 'true' then
     -- convert from URL-safe Base64 to Base64
@@ -25,16 +28,30 @@ local M = {}
 function M.auth(claim_specs)
     -- require Authorization request header
     local auth_header = ngx.var.http_Authorization
+    local _, token = nil
 
     if auth_header == nil then
-        ngx.log(ngx.WARN, "No Authorization header")
-        ngx.exit(ngx.HTTP_UNAUTHORIZED)
+        -- look for the cookie, just in case
+        local cookie, err = ck:new()
+        if cookie then
+            local value, err = cookie:get(authCookieName)
+            if value then
+                token = field
+            else
+                ngx.log(ngx.WARN, "No Authorization Cookie found")
+                ngx.exit(ngx.HTTP_UNAUTHORIZED)
+            end
+        else
+            ngx.log(ngx.WARN, "No Authorization header")
+            ngx.exit(ngx.HTTP_UNAUTHORIZED)
+        end
+
+    else
+        ngx.log(ngx.INFO, "Authorization: " .. auth_header)
+
+        -- require Bearer token
+        _, _, token = string.find(auth_header, "Bearer%s+(.+)")
     end
-
-    ngx.log(ngx.INFO, "Authorization: " .. auth_header)
-
-    -- require Bearer token
-    local _, _, token = string.find(auth_header, "Bearer%s+(.+)")
 
     if token == nil then
         ngx.log(ngx.WARN, "Missing token")
