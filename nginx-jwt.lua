@@ -31,18 +31,20 @@ function M.auth(claim_specs)
     local _, token = nil
 
     if auth_header == nil then
+        ngx.log(ngx.INFO, "No Authorization header, checking for cookie")
         -- look for the cookie, just in case
         local cookie, err = ck:new()
         if cookie then
             local value, err = cookie:get(authCookieName)
             if value then
-                token = field
+                ngx.log(ngx.INFO, "Auth cookie found")
+                token = value
             else
                 ngx.log(ngx.WARN, "No Authorization Cookie found")
                 ngx.exit(ngx.HTTP_UNAUTHORIZED)
             end
         else
-            ngx.log(ngx.WARN, "No Authorization header")
+            ngx.log(ngx.WARN, "No Authorization header or cookie")
             ngx.exit(ngx.HTTP_UNAUTHORIZED)
         end
 
@@ -58,7 +60,7 @@ function M.auth(claim_specs)
         ngx.exit(ngx.HTTP_UNAUTHORIZED)
     end
 
-    ngx.log(ngx.INFO, "Token: " .. token)
+    -- ngx.log(ngx.INFO, "Token: " .. token)
 
     -- require valid JWT
     local jwt_obj = jwt:verify(secret, token, 0)
