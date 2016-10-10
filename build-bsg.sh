@@ -13,12 +13,15 @@ ENV_NAME=$2
 proxy_dir=$proxy_base_dir/bsg/$APP_NAME
 echo "proxy_dir: $proxy_dir"
 
+DOCKER_VERSION=`docker --version | cut -f3 | cut -d '.' -f2`
+[ ${DOCKER_VERSION} -lt 12 ] && TAG_FLAG='-f' || TAG_FLAG=''
+
 ./scripts/build_deps.sh
 ./scripts/build_proxy_base_image.sh
 echo "sha1: $dockerfile_sha1"
 dockerfile_sha1=$(cat $proxy_base_dir/Dockerfile | openssl sha1 | sed 's/^.* //')
 
-docker tag -f proxy-base-image:$dockerfile_sha1 proxy-base-image:latest
+docker tag ${TAG_FLAG} proxy-base-image:$dockerfile_sha1 proxy-base-image:latest
 
 echo -e "${blue}Deploying Lua scripts and depedencies${no_color}"
 rm -rf $proxy_dir/nginx/lua
@@ -28,5 +31,5 @@ cp -r lib/* $proxy_dir/nginx/lua
 
 echo -e "${blue}Building the new image nginx-jwt-$APP_NAME ${no_color}"
 docker build -t="nginx-jwt-$APP_NAME" --force-rm $proxy_base_dir/bsg/$APP_NAME
-docker tag -f nginx-jwt-$APP_NAME openwhere/nginx-jwt-$APP_NAME:$ENV_NAME
+docker tag ${TAG_FLAG} nginx-jwt-$APP_NAME openwhere/nginx-jwt-$APP_NAME:$ENV_NAME
 docker push openwhere/nginx-jwt-$APP_NAME:$ENV_NAME
